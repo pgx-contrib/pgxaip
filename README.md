@@ -9,9 +9,15 @@
 
 `QueryRewriter` is a [pgx v5](https://github.com/jackc/pgx) query rewriter that
 applies [AIP-160](https://google.aip.dev/160) filter expressions and
-[AIP-132](https://google.aip.dev/132) ordering to any SQL query. Pass it as the
-last argument to `Query` and the filter becomes a parameterised `WHERE` clause,
-the ordering becomes `ORDER BY` — no hand-rolled SQL building.
+AIP-132 [`order_by`](https://google.aip.dev/132#ordering) strings to any SQL
+query. Pass it as the last argument to `Query` and the filter becomes a
+parameterised `WHERE` clause, the ordering becomes `ORDER BY` — no hand-rolled
+SQL building.
+
+See AIP-132 for how these fit into the [List method](https://google.aip.dev/132)
+contract — [`filter`](https://google.aip.dev/132#filtering) and
+[`order_by`](https://google.aip.dev/132#ordering) are the two request fields
+this rewriter is designed to consume.
 
 ## Installation
 
