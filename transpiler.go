@@ -3,31 +3,51 @@ package pgxquery
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
 	"go.einride.tech/aip/filtering"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type transpiler struct {
-	args []any
+	args    []any
+	columns map[string]string
 }
 
 func (t *transpiler) transpile(e *exprpb.Expr) (string, error) {
 	switch v := e.ExprKind.(type) {
 	case *exprpb.Expr_ConstExpr:
 		return t.transpileConst(v.ConstExpr)
-	case *exprpb.Expr_IdentExpr:
-		return pgx.Identifier{v.IdentExpr.Name}.Sanitize(), nil
-	case *exprpb.Expr_SelectExpr:
-		operand, err := t.transpile(v.SelectExpr.Operand)
-		if err != nil {
-			return "", err
+	case *exprpb.Expr_IdentExpr, *exprpb.Expr_SelectExpr:
+		path, ok := identPath(e)
+		if !ok {
+			return "", fmt.Errorf("unsupported identifier expression %T", v)
 		}
-		return operand + "." + pgx.Identifier{v.SelectExpr.Field}.Sanitize(), nil
+		col, ok := t.columns[path]
+		if !ok {
+			return "", fmt.Errorf("unknown field %q", path)
+		}
+		return sanitizePath(col), nil
 	case *exprpb.Expr_CallExpr:
 		return t.transpileCall(v.CallExpr)
 	default:
 		return "", fmt.Errorf("unsupported expression kind %T", v)
+	}
+}
+
+// identPath reconstructs a dotted AIP path (e.g. `address.city`) from a chain
+// of Ident/Select expressions. Returns false if the expression is not a pure
+// identifier chain.
+func identPath(e *exprpb.Expr) (string, bool) {
+	switch v := e.ExprKind.(type) {
+	case *exprpb.Expr_IdentExpr:
+		return v.IdentExpr.Name, true
+	case *exprpb.Expr_SelectExpr:
+		op, ok := identPath(v.SelectExpr.Operand)
+		if !ok {
+			return "", false
+		}
+		return op + "." + v.SelectExpr.Field, true
+	default:
+		return "", false
 	}
 }
 

@@ -23,7 +23,7 @@ var _ = Describe("transpiler", func() {
 			Expect(err).To(MatchError(ContainSubstring("unsupported expression kind")))
 		})
 
-		It("propagates errors from SelectExpr operand", func() {
+		It("errors when a SelectExpr operand is not an identifier chain", func() {
 			expr := &exprpb.Expr{
 				ExprKind: &exprpb.Expr_SelectExpr{
 					SelectExpr: &exprpb.Expr_Select{
@@ -35,7 +35,40 @@ var _ = Describe("transpiler", func() {
 				},
 			}
 			_, err := t.transpile(expr)
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("unsupported identifier expression")))
+		})
+
+		It("resolves an Ident through the column map", func() {
+			t.columns = map[string]string{"name": "name"}
+			out, err := t.transpile(&exprpb.Expr{
+				ExprKind: &exprpb.Expr_IdentExpr{IdentExpr: &exprpb.Expr_Ident{Name: "name"}},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).To(Equal(`"name"`))
+		})
+
+		It("resolves a dotted Select path through the column map", func() {
+			t.columns = map[string]string{"address.city": "addr.city"}
+			out, err := t.transpile(&exprpb.Expr{
+				ExprKind: &exprpb.Expr_SelectExpr{
+					SelectExpr: &exprpb.Expr_Select{
+						Operand: &exprpb.Expr{
+							ExprKind: &exprpb.Expr_IdentExpr{IdentExpr: &exprpb.Expr_Ident{Name: "address"}},
+						},
+						Field: "city",
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).To(Equal(`"addr"."city"`))
+		})
+
+		It("errors when an identifier is not in the column map", func() {
+			out, err := t.transpile(&exprpb.Expr{
+				ExprKind: &exprpb.Expr_IdentExpr{IdentExpr: &exprpb.Expr_Ident{Name: "nope"}},
+			})
+			Expect(err).To(MatchError(ContainSubstring(`unknown field "nope"`)))
+			Expect(out).To(BeEmpty())
 		})
 	})
 

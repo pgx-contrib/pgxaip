@@ -7,17 +7,23 @@
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![pgx](https://img.shields.io/badge/pgx-v5-blue)](https://github.com/jackc/pgx)
 
-`QueryRewriter` is a [pgx v5](https://github.com/jackc/pgx) query rewriter that
-applies [AIP-160](https://google.aip.dev/160) filter expressions and
-AIP-132 [`order_by`](https://google.aip.dev/132#ordering) strings to any SQL
-query. Pass it as the last argument to `Query` and the filter becomes a
-parameterised `WHERE` clause, the ordering becomes `ORDER BY` — no hand-rolled
-SQL building.
+`pgxquery` is a set of [pgx v5](https://github.com/jackc/pgx) query rewriters
+that inject dynamic [AIP-160](https://google.aip.dev/160) filter expressions,
+[AIP-132 order_by](https://google.aip.dev/132#ordering), and keyset cursor
+predicates into SQL — using comment-based sentinels that keep the raw query
+valid and runnable on its own.
 
-See AIP-132 for how these fit into the [List method](https://google.aip.dev/132)
-contract — [`filter`](https://google.aip.dev/132#filtering) and
-[`order_by`](https://google.aip.dev/132#ordering) are the two request fields
-this rewriter is designed to consume.
+```sql
+SELECT * FROM collection
+WHERE /* query.cursor AND */ TRUE
+  AND /* query.filter AND */ TRUE
+ORDER BY /* query.order , */ collection_id
+LIMIT $1::int OFFSET $2::int;
+```
+
+Without a rewriter, the comments act as whitespace and the query returns every
+row. With a [`Chain`](https://pkg.go.dev/github.com/pgx-contrib/pgxquery#Chain)
+wired up, each sentinel gets swapped for the corresponding SQL fragment.
 
 ## Installation
 
@@ -29,81 +35,103 @@ go get github.com/pgx-contrib/pgxquery
 
 ```go
 import (
-    "context"
-    "os"
-
     "github.com/jackc/pgx/v5/pgxpool"
     "github.com/pgx-contrib/pgxquery"
     "go.einride.tech/aip/filtering"
     "go.einride.tech/aip/ordering"
 )
 
-declarations, err := filtering.NewDeclarations(
+// Parse request inputs against typed declarations.
+declarations, _ := filtering.NewDeclarations(
     filtering.DeclareStandardFunctions(),
-    filtering.DeclareIdent("first_name", filtering.TypeString),
-    filtering.DeclareIdent("age", filtering.TypeInt),
+    filtering.DeclareIdent("display_name", filtering.TypeString),
 )
-if err != nil {
-    panic(err)
-}
-
-filter, err := filtering.ParseFilterString(`first_name = "Alice" AND age > 30`, declarations)
-if err != nil {
-    panic(err)
-}
+filter, _ := filtering.ParseFilterString(`display_name = "Photos"`, declarations)
 
 var orderBy ordering.OrderBy
-if err := orderBy.UnmarshalString("age desc, first_name"); err != nil {
-    panic(err)
+_ = orderBy.UnmarshalString("display_name desc")
+
+// The cursor must know the effective ordering — user fields plus any
+// SQL-level fallback (the PK, typically).
+effective := append(orderBy.Fields, ordering.Field{Path: "collection_id"})
+
+chain := pgxquery.Chain{
+    &pgxquery.FilterRewriter{
+        Filter:  filter,
+        Columns: templatev1.CollectionFilterColumns,
+    },
+    &pgxquery.OrderByRewriter{
+        OrderBy: orderBy,
+        Columns: templatev1.CollectionOrderByColumns,
+    },
+    &pgxquery.CursorRewriter{
+        Fields:  effective,
+        Values:  decodePageToken(req.PageToken),
+        Columns: templatev1.CollectionOrderByColumns,
+    },
 }
 
-rewriter := pgxquery.New(filter, orderBy)
-
-rows, err := pool.Query(context.TODO(), "SELECT * FROM customer", rewriter)
+rows, err := pool.Query(ctx, listCollectionsSQL, chain, req.PageSize, req.PageOffset)
 ```
 
-The rewritten SQL looks like:
+`Columns` is the AIP-path → DB-column allow-list. Pair it with the
+`*FilterColumns` / `*OrderByColumns` maps produced by
+`protoc-gen-go-aip-query`, or hand-build a `map[string]string` for
+ad-hoc use. Lookup is **fail-closed** — any filter/order/cursor path
+that is not in `Columns` causes the substituter to return an error, so
+an unmapped field can never leak into generated SQL.
+
+The `Chain` must be passed as the **first** positional argument — pgx detects
+the `QueryRewriter` interface and calls `RewriteQuery`. Remaining args stay as
+your query's bind values (`LIMIT`, `OFFSET`, etc.); each substituter appends
+any new values at the end so placeholder numbers remain stable.
+
+## Sentinels
+
+| Comment                       | What it becomes                                               |
+| ----------------------------- | ------------------------------------------------------------- |
+| `/* query.filter AND */ TRUE` | `(<expr>) AND TRUE`, or `TRUE` when the filter is unset       |
+| `/* query.order , */ id`      | `<fields>, id`, or just `id` when the order is unset          |
+| `/* query.cursor AND */ TRUE` | compound keyset predicate `AND TRUE`, or `TRUE` on first page |
+
+**Glue position is flexible** — put it before or after the sentinel name, as
+long as it lives inside the comment. These are equivalent:
 
 ```sql
-WITH query AS (SELECT * FROM customer)
-SELECT * FROM query
-WHERE ("first_name" = $1 AND "age" > $2)
-ORDER BY "age" DESC, "first_name" ASC
+/* query.filter AND */ fallback
+fallback /* AND query.filter */
 ```
 
-### How it works
+## Keyset cursors
 
-The input query is wrapped as a CTE so filtering and ordering can be applied
-without parsing the SQL. This keeps the rewriter agnostic to the query shape —
-any valid `SELECT` works, including joins and sub-queries — but the planner must
-materialize the CTE before applying `WHERE`/`ORDER BY`. For very large tables
-where you need predicate pushdown, inline the filter yourself.
+`CursorRewriter` emits the standard compound keyset predicate so pagination
+stays correct across multi-column ordering:
 
-### Supported filter functions
+```sql
+(name < $1)
+  OR (name = $1 AND id > $2)
+```
 
-| AIP filter                  | SQL                        |
-| --------------------------- | -------------------------- |
-| `a = b`, `!=`, `<`, `<=`, `>`, `>=` | `a <op> b`          |
-| `a AND b`                   | `(a AND b)`                |
-| `a OR b`                    | `(a OR b)`                 |
-| `NOT a`                     | `(NOT a)`                  |
-| `field:value` (has)         | `field ILIKE '%' \|\| $n \|\| '%'` |
+The `Fields` list should include every column that contributes to ordering —
+both user-supplied and whatever the SQL author wrote as a tiebreaker. Values
+are the decoded page token (one per field); pass `nil` on the first page.
 
-Identifiers and dotted paths (e.g. `address.city`) are sanitised with
-`pgx.Identifier.Sanitize`; constants are always emitted as bound parameters.
+## Writing queries
 
-### Empty rewriter
-
-A `QueryRewriter{}` with no filter or ordering is a no-op — the query passes
-through unchanged. This makes it safe to wire up unconditionally and populate
-the fields from request inputs.
+- Comment sentinels degrade to whitespace, so the query is valid SQL with or
+  without a rewriter. Paste it into `psql` to debug.
+- Glue tokens (`AND`, `OR`, `,`) go **inside** the comment; the surrounding SQL
+  must be a valid expression on its own if the rewriter is absent.
+- The sentinel always expands in-place — the filter predicate lives in the
+  same `WHERE` clause as your cursor and `LIMIT`, so the planner filters
+  *before* paginating (unlike CTE-wrapping approaches).
 
 ## Development
 
 ### DevContainer
 
-Open in VS Code with the Dev Containers extension. The environment provides Go,
-PostgreSQL 18, and Nix automatically.
+Open in VS Code with the Dev Containers extension. Go, PostgreSQL 18, and Nix
+come preconfigured.
 
 ```
 PGX_DATABASE_URL=postgres://vscode@postgres:5432/pgxquery?sslmode=disable
@@ -113,12 +141,6 @@ PGX_DATABASE_URL=postgres://vscode@postgres:5432/pgxquery?sslmode=disable
 
 ```bash
 nix develop          # enter shell with Go
-go tool ginkgo run -r
-```
-
-### Run tests
-
-```bash
 go tool ginkgo run -r
 ```
 
