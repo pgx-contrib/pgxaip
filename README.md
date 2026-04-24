@@ -5,25 +5,33 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/pgx-contrib/pgxaip.svg)](https://pkg.go.dev/github.com/pgx-contrib/pgxaip)
 [![License](https://img.shields.io/github/license/pgx-contrib/pgxaip)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![pgx](https://img.shields.io/badge/pgx-v5-blue)](https://github.com/jackc/pgx)
 
-`pgxaip` is a set of [pgx v5](https://github.com/jackc/pgx) query rewriters
-that inject dynamic [AIP-160](https://google.aip.dev/160) filter expressions,
-[AIP-132 order_by](https://google.aip.dev/132#ordering), and keyset cursor
-predicates into SQL — using comment-based sentinels that keep the raw query
-valid and runnable on its own.
+`pgxaip` rewrites a parsed [AIP-160](https://google.aip.dev/160) filter,
+an [AIP-132](https://google.aip.dev/132#ordering) `order_by`, and an
+optional keyset cursor into Postgres SQL fragments you splice into a
+query by hand.
 
-```sql
-SELECT * FROM collection
-WHERE /* query.cursor AND */ TRUE
-  AND /* query.filter AND */ TRUE
-ORDER BY /* query.order , */ collection_id
-LIMIT $1::int OFFSET $2::int;
+```go
+query := pgxaip.Query{
+    Filter:    filter,     // from filtering.ParseFilter
+    OrderBy:   orderBy,    // from ordering.ParseOrderBy
+    PageToken: pageToken,  // from pagination.ParsePageToken (incl. Cursor)
+    Columns:   columns,    // AIP path -> DB column
+}
+
+where, order, args, err := query.Rewrite()
 ```
 
-Without a rewriter, the comments act as whitespace and the query returns every
-row. With a [`ChainRewriter`](https://pkg.go.dev/github.com/pgx-contrib/pgxaip#ChainRewriter)
-wired up, each sentinel gets swapped for the corresponding SQL fragment.
+- `where` — the WHERE predicate (filter, cursor, or both ANDed). Empty
+  when neither is present.
+- `order` — the `col ASC, col DESC` list, no `ORDER BY` prefix. Empty
+  when `OrderBy` has no fields.
+- `args` — positional bind values, numbered `$1..$N`. Filter literals
+  first, then cursor values. Append your own `LIMIT` / `OFFSET` at
+  `$N+1`.
+
+`PageToken.Offset` is not consulted by `Rewrite`; feed it into your
+`OFFSET` clause yourself.
 
 ## Installation
 
@@ -34,113 +42,75 @@ go get github.com/pgx-contrib/pgxaip
 ## Usage
 
 ```go
-import (
-    "github.com/jackc/pgx/v5/pgxpool"
-    "github.com/pgx-contrib/pgxaip"
-    "go.einride.tech/aip/filtering"
-    "go.einride.tech/aip/ordering"
-)
+filter, _ := filtering.ParseFilter(req, BookFilterDeclarations)
+orderBy, _ := ordering.ParseOrderBy(req)
+pageToken, _ := pagination.ParsePageToken(req)
 
-// Parse request inputs against typed declarations.
-declarations, _ := filtering.NewDeclarations(
-    filtering.DeclareStandardFunctions(),
-    filtering.DeclareIdent("display_name", filtering.TypeString),
-)
-filter, _ := filtering.ParseFilterString(`display_name = "Photos"`, declarations)
-
-var orderBy ordering.OrderBy
-_ = orderBy.UnmarshalString("display_name desc")
-
-// The cursor must know the effective ordering — user fields plus any
-// SQL-level fallback (the PK, typically).
-effective := append(orderBy.Fields, ordering.Field{Path: "collection_id"})
-
-chain := pgxaip.ChainRewriter{
-    &pgxaip.FilterRewriter{
-        Filter:  filter,
-        Columns: templatev1.CollectionFilterColumns,
-    },
-    &pgxaip.OrderByRewriter{
-        OrderBy: orderBy,
-        Columns: templatev1.CollectionOrderByColumns,
-    },
-    &pgxaip.CursorRewriter{
-        Fields:  effective,
-        Values:  decodePageToken(req.PageToken),
-        Columns: templatev1.CollectionOrderByColumns,
-    },
+// Unified column map: union of the generated *FilterColumns and
+// *OrderByColumns. Same path -> same column by construction, so the
+// union is safe.
+columns := map[string]string{}
+for k, v := range BookFilterColumns {
+    columns[k] = v
+}
+for k, v := range BookOrderByColumns {
+    columns[k] = v
 }
 
-rows, err := pool.Query(ctx, listCollectionsSQL, chain, req.PageSize, req.PageOffset)
+q := pgxaip.Query{
+    Filter:    filter,
+    OrderBy:   orderBy,
+    PageToken: pageToken,
+    Columns:   columns,
+}
+where, order, args, err := q.Rewrite()
 ```
 
-`Columns` is the AIP-path → DB-column allow-list. Pair it with the
-`*FilterColumns` / `*OrderByColumns` maps produced by
-`protoc-gen-go-aip-query`, or hand-build a `map[string]string` for
-ad-hoc use. Lookup is **fail-closed** — any filter/order/cursor path
-that is not in `Columns` causes the substituter to return an error, so
-an unmapped field can never leak into generated SQL.
+`Columns` is the AIP-path → DB-column allow-list. Lookup is
+**fail-closed**: any filter / order / cursor path that is not in
+`Columns` causes `Rewrite` to return an error, so an unmapped field
+can never leak into generated SQL. Pair with the `*FilterColumns` /
+`*OrderByColumns` maps produced by
+[`protoc-gen-go-aip-query`](https://github.com/protoc-contrib/protoc-gen-go-aip-query)
+or hand-build a `map[string]string` for ad-hoc use.
 
-The `ChainRewriter` must be passed as the **first** positional argument — pgx detects
-the `QueryRewriter` interface and calls `RewriteQuery`. Remaining args stay as
-your query's bind values (`LIMIT`, `OFFSET`, etc.); each substituter appends
-any new values at the end so placeholder numbers remain stable.
+## Filter operators
 
-## Sentinels
+| AIP filter                          | Postgres fragment                     |
+| ----------------------------------- | ------------------------------------- |
+| `=, !=, <, <=, >, >=`               | `col op $N` (or `col op col`)         |
+| `AND`, `OR`                         | `(lhs AND rhs)` / `(lhs OR rhs)`      |
+| `NOT`                               | `(NOT expr)`                          |
+| `name:"ali"`                        | `"name" ILIKE '%' \|\| $N \|\| '%'`   |
+| `timestamp("2025-01-02T03:04:05Z")` | `$N` bound as `time.Time`             |
+| `duration("1h30m")`                 | `$N` bound as `time.Duration`         |
+| unary `-<literal>`                  | bound as signed numeric literal       |
 
-| Comment                       | What it becomes                                               |
-| ----------------------------- | ------------------------------------------------------------- |
-| `/* query.filter AND */ TRUE` | `(<expr>) AND TRUE`, or `TRUE` when the filter is unset       |
-| `/* query.order , */ id`      | `<fields>, id`, or just `id` when the order is unset          |
-| `/* query.cursor AND */ TRUE` | compound keyset predicate `AND TRUE`, or `TRUE` on first page |
+## Cursor pagination
 
-**Glue position is flexible** — put it before or after the sentinel name, as
-long as it lives inside the comment. These are equivalent:
+When `PageToken.Cursor` is populated, `Rewrite` emits the standard
+compound keyset predicate from `OrderBy.Fields`:
 
 ```sql
-/* query.filter AND */ fallback
-fallback /* AND query.filter */
+("name" < $1)
+  OR ("name" = $1 AND "id" > $2)
 ```
 
-## Keyset cursors
+Direction per field follows the `OrderBy` field's `Desc` flag
+(ASC → `>`, DESC → `<`). `len(PageToken.Cursor)` must equal
+`len(OrderBy.Fields)`; mismatch is a validation error.
 
-`CursorRewriter` emits the standard compound keyset predicate so pagination
-stays correct across multi-column ordering:
+For a stable ordering, append a tiebreaker (the PK) to
+`OrderBy.Fields` before calling `Rewrite`, and make sure
+`PageToken.Cursor` carries a matching trailing value.
 
-```sql
-(name < $1)
-  OR (name = $1 AND id > $2)
-```
-
-The `Fields` list should include every column that contributes to ordering —
-both user-supplied and whatever the SQL author wrote as a tiebreaker. Values
-are the decoded page token (one per field); pass `nil` on the first page.
-
-## Writing queries
-
-- Comment sentinels degrade to whitespace, so the query is valid SQL with or
-  without a rewriter. Paste it into `psql` to debug.
-- Glue tokens (`AND`, `OR`, `,`) go **inside** the comment; the surrounding SQL
-  must be a valid expression on its own if the rewriter is absent.
-- The sentinel always expands in-place — the filter predicate lives in the
-  same `WHERE` clause as your cursor and `LIMIT`, so the planner filters
-  *before* paginating (unlike CTE-wrapping approaches).
+On the first page (`PageToken.Cursor` is empty) the cursor predicate
+is omitted.
 
 ## Development
 
-### DevContainer
-
-Open in VS Code with the Dev Containers extension. Go, PostgreSQL 18, and Nix
-come preconfigured.
-
-```
-PGX_DATABASE_URL=postgres://vscode@postgres:5432/pgxaip?sslmode=disable
-```
-
-### Nix
-
 ```bash
-nix develop          # enter shell with Go
+nix develop
 go tool ginkgo run -r
 ```
 
