@@ -40,8 +40,8 @@ github.com/onsi/ginkgo/v2 v2.28.1 h1:S4hj+HbZp40fNKuLUQOYLDgZLwNUVn19N3Atb98NCyI
 github.com/onsi/ginkgo/v2 v2.28.1/go.mod h1:CLtbVInNckU3/+gC8LzkGUb9oF+e8W8TdUsxPwvdOgE=
 github.com/onsi/gomega v1.39.1 h1:1IJLAad4zjPn2PsnhH70V4DKRFlrCzGBNrNaru+Vf28=
 github.com/onsi/gomega v1.39.1/go.mod h1:hL6yVALoTOxeWudERyfppUcZXjMwIMLnuSfruD2lcfg=
-github.com/pgx-contrib/pgxcel v0.0.0-20260426111637-22521d8e7f09 h1:DWGqQt4NjIfhyKSRwx9okznXKdDxPS/Y/id3jP726Fc=
-github.com/pgx-contrib/pgxcel v0.0.0-20260426111637-22521d8e7f09/go.mod h1:J7uMyP4B8nOhpdbcUoXnmEo2nJPB4UDW4XaYhkSPE/U=
+github.com/pgx-contrib/pgxcel v0.0.0-20260426112256-5ccf4479966e h1:RsyqnSsI+dNKJ4nIRb/gOydQmWBRXDO3/1CZCYtfRvk=
+github.com/pgx-contrib/pgxcel v0.0.0-20260426112256-5ccf4479966e/go.mod h1:iKNiYf92jhyWdkf9QXYk/QodagQ9YxbUkmU9bKkNKVE=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
