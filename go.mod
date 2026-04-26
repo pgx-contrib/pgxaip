@@ -6,7 +6,7 @@ require (
 	github.com/google/cel-go v0.28.0
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/pgx-contrib/pgxcel v0.0.0-20260426034612-8214ec06df8f
+	github.com/pgx-contrib/pgxcel v0.0.0-20260426040013-41292389b9af
 	go.einride.tech/aip v0.85.0
 )
 
@@ -34,5 +34,3 @@ require (
 )
 
 replace go.einride.tech/aip => github.com/iamralch/aip-go v0.0.0-20260424155005-c6380f4cb9b5
-
-replace github.com/pgx-contrib/pgxcel => ../pgxcel
