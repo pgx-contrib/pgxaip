@@ -4,8 +4,8 @@ go 1.25.8
 
 require (
 	github.com/google/cel-go v0.28.1
-	github.com/onsi/ginkgo/v2 v2.29.0
-	github.com/onsi/gomega v1.41.0
+	github.com/onsi/ginkgo/v2 v2.31.0
+	github.com/onsi/gomega v1.42.0
 	github.com/pgx-contrib/pgxcel v0.0.0-20260426115353-32e8f3d803b5
 	go.einride.tech/aip v0.86.0
 )
