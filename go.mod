@@ -3,7 +3,7 @@ module github.com/pgx-contrib/pgxaip
 go 1.25.8
 
 require (
-	github.com/google/cel-go v0.29.2
+	github.com/google/cel-go v0.30.0
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/pgx-contrib/pgxcel v0.0.0-20260426115353-32e8f3d803b5
