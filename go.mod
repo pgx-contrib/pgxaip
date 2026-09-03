@@ -7,7 +7,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.43.0
 	github.com/pgx-contrib/pgxcel v0.0.0-20260426115353-32e8f3d803b5
-	go.einride.tech/aip v0.86.0
+	github.com/protoc-contrib/aip-go v0.0.0-20260903102901-ba65222135d0
 )
 
 tool github.com/onsi/ginkgo/v2/ginkgo
@@ -28,9 +28,7 @@ require (
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/tools v0.45.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260420184626-e10c466a9529 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260420184626-e10c466a9529 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260831171406-18b4a7587f8a // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )
-
-replace go.einride.tech/aip => github.com/iamralch/aip-go v0.0.0-20260424155005-c6380f4cb9b5

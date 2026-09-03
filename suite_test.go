@@ -3,10 +3,10 @@ package pgxaip_test
 import (
 	"testing"
 
+	"github.com/google/cel-go/cel"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.einride.tech/aip/filtering"
-	"go.einride.tech/aip/ordering"
+	aip "github.com/protoc-contrib/aip-go"
 )
 
 func TestPgxquery(t *testing.T) {
@@ -14,19 +14,20 @@ func TestPgxquery(t *testing.T) {
 	RunSpecs(t, "pgxaip Suite")
 }
 
-func parseFilter(expr string, opts ...filtering.DeclarationOption) filtering.Filter {
+// parseFilter compiles a CEL expression the way the generated ParseFilter
+// does, against an environment declaring vars.
+func parseFilter(expr string, vars ...cel.EnvOption) *cel.Ast {
 	GinkgoHelper()
-	base := []filtering.DeclarationOption{filtering.DeclareStandardFunctions()}
-	decls, err := filtering.NewDeclarations(append(base, opts...)...)
+	env, err := cel.NewEnv(vars...)
 	Expect(err).NotTo(HaveOccurred())
-	f, err := filtering.ParseFilterString(expr, decls)
-	Expect(err).NotTo(HaveOccurred())
-	return f
+	ast, issues := env.Compile(expr)
+	Expect(issues.Err()).NotTo(HaveOccurred())
+	return ast
 }
 
-func parseOrderBy(s string) ordering.OrderBy {
+func parseOrderBy(s string) aip.OrderBy {
 	GinkgoHelper()
-	var o ordering.OrderBy
+	var o aip.OrderBy
 	Expect(o.UnmarshalString(s)).To(Succeed())
 	return o
 }

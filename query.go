@@ -6,7 +6,7 @@
 // example the ones emitted by protoc-gen-go-aip-query) and call
 // [Query.Rewrite] to produce the WHERE predicate, the ORDER BY list, and
 // the matching positional args. Pagination is offset- or cursor-based —
-// driven by [pagination.PageToken.Cursor] when set — and the caller
+// driven by [aip.PageToken.Cursor] when set — and the caller
 // tacks the LIMIT/OFFSET pair onto the SQL themselves.
 package pgxaip
 
@@ -15,12 +15,8 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/overloads"
 	"github.com/pgx-contrib/pgxcel"
-	"go.einride.tech/aip/filtering"
-	"go.einride.tech/aip/ordering"
-	"go.einride.tech/aip/pagination"
+	aip "github.com/protoc-contrib/aip-go"
 )
 
 // Query bundles the parsed AIP inputs for a List request together with
@@ -32,9 +28,9 @@ import (
 // tiebreaker (the primary key, typically) the caller appends. When
 // PageToken.Cursor is non-empty, its length must match len(OrderBy.Fields).
 type Query struct {
-	Filter    filtering.Filter
-	OrderBy   ordering.OrderBy
-	PageToken pagination.PageToken
+	Filter    *cel.Ast
+	OrderBy   aip.OrderBy
+	PageToken aip.PageToken
 	Columns   map[string]string
 }
 
@@ -91,55 +87,37 @@ func joinWhere(filterSQL, cursorSQL string) string {
 	}
 }
 
-// rewriteFilter transpiles an AIP-160 [filtering.Filter] into a Postgres
-// WHERE fragment (no enclosing parentheses) and the bound arguments that
-// match its placeholders. Placeholder numbering starts at startParam so
-// callers can splice the fragment into a query that already has earlier
-// bound values.
+// rewriteFilter transpiles a compiled CEL filter into a Postgres WHERE
+// fragment (no enclosing parentheses) and the bound arguments that match its
+// placeholders. Placeholder numbering starts at startParam so callers can
+// splice the fragment into a query that already has earlier bound values.
 //
-// columns is the AIP-path → DB-column allow-list. Lookup is fail-closed:
-// any ident in the filter that is absent from columns causes an error.
+// columns is the AIP-path → DB-column allow-list. Lookup is fail-closed: any
+// ident in the filter that is absent from columns causes an error. It is the
+// only gate on what a client may filter by — the generated CEL environment
+// declares every field of the resource.
 //
-// Returns ("", nil, nil) when the filter is empty (zero Filter or nil
-// CheckedExpr); callers use that to decide whether to emit a WHERE clause.
-func rewriteFilter(f filtering.Filter, columns map[string]string, startParam int) (string, []any, error) {
-	if f.CheckedExpr == nil {
+// Returns ("", nil, nil) for a nil AST, which is what the generated
+// ParseFilter yields when the request carried no filter; callers use that to
+// decide whether to emit a WHERE clause.
+func rewriteFilter(ast *cel.Ast, columns map[string]string, startParam int) (string, []any, error) {
+	if ast == nil {
 		return "", nil, nil
 	}
 	return pgxcel.Transpile(
-		cel.CheckedExprToAst(f.CheckedExpr),
+		ast,
 		pgxcel.WithColumns(columns),
 		pgxcel.WithParamOffset(startParam),
-		pgxcel.WithFunctions(aipFunctions),
 	)
 }
 
-// aipFunctions normalizes the function names emitted by the
-// einride/aip-go filter parser into the canonical cel-go names that
-// pgxcel dispatches on. The AIP parser uses SQL-spelled comparison and
-// logical operators, plus two AIP-only operators that map to CEL
-// stdlib equivalents: ":" → string.contains, "FUZZY" → logical AND.
-var aipFunctions = map[string]string{
-	"=":     operators.Equals,
-	"!=":    operators.NotEquals,
-	"<":     operators.Less,
-	"<=":    operators.LessEquals,
-	">":     operators.Greater,
-	">=":    operators.GreaterEquals,
-	"AND":   operators.LogicalAnd,
-	"OR":    operators.LogicalOr,
-	"NOT":   operators.LogicalNot,
-	"FUZZY": operators.LogicalAnd,
-	":":     overloads.Contains,
-}
-
-// rewriteOrderBy translates an AIP-132 [ordering.OrderBy] into a
+// rewriteOrderBy translates an AIP-132 [aip.OrderBy] into a
 // comma-separated list of sanitized `col ASC|DESC` terms (no `ORDER BY`
 // prefix). Returns "" when OrderBy has no fields.
 //
 // columns is the AIP-path → DB-column allow-list. Lookup is fail-closed:
 // any path absent from columns causes an error.
-func rewriteOrderBy(o ordering.OrderBy, columns map[string]string) (string, error) {
+func rewriteOrderBy(o aip.OrderBy, columns map[string]string) (string, error) {
 	if len(o.Fields) == 0 {
 		return "", nil
 	}
@@ -175,7 +153,7 @@ func rewriteOrderBy(o ordering.OrderBy, columns map[string]string) (string, erro
 // Errors when len(fields) != len(values), or when any field's path is
 // not in columns.
 func rewriteCursor(
-	fields []ordering.Field,
+	fields []aip.OrderByField,
 	values []any,
 	columns map[string]string,
 	startParam int,
