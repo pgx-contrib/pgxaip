@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	"github.com/pgx-contrib/pgxcel"
 	aip "github.com/protoc-contrib/aip-go"
 )

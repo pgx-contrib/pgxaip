@@ -44,6 +44,12 @@ exactly one thing: turning those values into SQL text safely.
 go get github.com/pgx-contrib/pgxaip
 ```
 
+Compile filters with **`cel.dev/cel-go`**, not `github.com/google/cel-go`.
+cel-go renamed its module path in v0.32.0, and the two are distinct types:
+importing the old path yields `cannot use ast (variable of type *cel.Ast)
+as *cel.Ast value`, which reads like a compiler bug until you compare the
+fully-qualified names.
+
 ## Usage
 
 `Query` mirrors the `Query` that

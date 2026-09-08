@@ -3,7 +3,7 @@ package pgxaip_test
 import (
 	"time"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pgx-contrib/pgxaip"
