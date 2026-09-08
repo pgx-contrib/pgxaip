@@ -3,7 +3,7 @@ package pgxaip_test
 import (
 	"time"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pgx-contrib/pgxaip"
@@ -252,6 +252,16 @@ var _ = Describe("Query.Rewrite order_by", func() {
 		_, order, _, err := q.Rewrite()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(order).To(Equal(`"addr"."city" ASC`))
+	})
+
+	It("escapes embedded quotes in the mapped column", func() {
+		q := pgxaip.Query{
+			OrderBy: parseOrderBy("name"),
+			Columns: map[string]string{"name": `we"ird`},
+		}
+		_, order, _, err := q.Rewrite()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(order).To(Equal(`"we""ird" ASC`))
 	})
 
 	It("returns empty order when no fields are supplied", func() {

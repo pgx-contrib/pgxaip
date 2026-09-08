@@ -3,7 +3,7 @@
 // a query by hand.
 //
 // The entry point is [Query]. Populate it from the request parsers (for
-// example the ones emitted by protoc-gen-go-aip-query) and call
+// example the ones emitted by protoc-gen-go-aip) and call
 // [Query.Rewrite] to produce the WHERE predicate, the ORDER BY list, and
 // the matching positional args. Pagination is offset- or cursor-based —
 // driven by [aip.PageToken.Cursor] when set — and the caller
@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	"github.com/pgx-contrib/pgxcel"
 	aip "github.com/protoc-contrib/aip-go"
 )

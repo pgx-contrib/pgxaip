@@ -3,13 +3,13 @@ package pgxaip_test
 import (
 	"testing"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	aip "github.com/protoc-contrib/aip-go"
 )
 
-func TestPgxquery(t *testing.T) {
+func TestPgxaip(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "pgxaip Suite")
 }
