@@ -6,8 +6,8 @@ require (
 	github.com/google/cel-go v0.31.0
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.43.0
-	github.com/pgx-contrib/pgxcel v0.0.0-20260426115353-32e8f3d803b5
-	github.com/protoc-contrib/aip-go v0.0.0-20260903102901-ba65222135d0
+	github.com/pgx-contrib/pgxcel v0.0.0-20260907032118-ea09059c3f01
+	github.com/protoc-contrib/aip-go v0.0.0-20260904124944-e46838d893b9
 )
 
 tool github.com/onsi/ginkgo/v2/ginkgo

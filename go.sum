@@ -38,12 +38,12 @@ github.com/onsi/ginkgo/v2 v2.32.1 h1:6tlvcDm/3sE8lGJbZ4+d4mO3RLy24/tQWOFzVSQNIfw
 github.com/onsi/ginkgo/v2 v2.32.1/go.mod h1:+aXOY+vzZ5mu2iI2HpTZUPmM//oQfsNFX6gU9kNcA44=
 github.com/onsi/gomega v1.43.0 h1:VlG/1FxqNxhSO+lq/OHBNaaqwiBK/mO8JbVkX9Y+FeU=
 github.com/onsi/gomega v1.43.0/go.mod h1:REff/hsDsodHoKlWsP2mAPhu1+5/6hVYNf9rIEBpeSg=
-github.com/pgx-contrib/pgxcel v0.0.0-20260426115353-32e8f3d803b5 h1:RX3Tj0i7TlNGPPtMYsznCIzV46VVpok1a0z0o5iQYGQ=
-github.com/pgx-contrib/pgxcel v0.0.0-20260426115353-32e8f3d803b5/go.mod h1:iKNiYf92jhyWdkf9QXYk/QodagQ9YxbUkmU9bKkNKVE=
+github.com/pgx-contrib/pgxcel v0.0.0-20260907032118-ea09059c3f01 h1:HmXQwkPw3H46xANdo2lpVAOJaX9ooeGL0atNcK1p7Gg=
+github.com/pgx-contrib/pgxcel v0.0.0-20260907032118-ea09059c3f01/go.mod h1:WfHmtWNLl4ib+8S6xB/NF3m2ntfgWpkLoVmL4WBfLbU=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/protoc-contrib/aip-go v0.0.0-20260903102901-ba65222135d0 h1:nvomKE9ORxupFHuApB1rKmzqWM4T0gQOjS/zUlazVgo=
-github.com/protoc-contrib/aip-go v0.0.0-20260903102901-ba65222135d0/go.mod h1:zaMOzjmVvzjmWikDyaCCPqaX/XCVx3xx8wuA82ByKJ0=
+github.com/protoc-contrib/aip-go v0.0.0-20260904124944-e46838d893b9 h1:joh27/3uCZRILocxCnhIYNJzYpXNLn8LdxvKvxQusfY=
+github.com/protoc-contrib/aip-go v0.0.0-20260904124944-e46838d893b9/go.mod h1:zaMOzjmVvzjmWikDyaCCPqaX/XCVx3xx8wuA82ByKJ0=
 github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
 github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
