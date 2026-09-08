@@ -9,7 +9,7 @@ import (
 	aip "github.com/protoc-contrib/aip-go"
 )
 
-func TestPgxquery(t *testing.T) {
+func TestPgxaip(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "pgxaip Suite")
 }

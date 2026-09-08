@@ -254,6 +254,16 @@ var _ = Describe("Query.Rewrite order_by", func() {
 		Expect(order).To(Equal(`"addr"."city" ASC`))
 	})
 
+	It("escapes embedded quotes in the mapped column", func() {
+		q := pgxaip.Query{
+			OrderBy: parseOrderBy("name"),
+			Columns: map[string]string{"name": `we"ird`},
+		}
+		_, order, _, err := q.Rewrite()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(order).To(Equal(`"we""ird" ASC`))
+	})
+
 	It("returns empty order when no fields are supplied", func() {
 		q := pgxaip.Query{}
 		_, order, _, err := q.Rewrite()
