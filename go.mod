@@ -5,7 +5,7 @@ go 1.25.8
 require (
 	cel.dev/cel-go v0.32.0
 	github.com/onsi/ginkgo/v2 v2.33.0
-	github.com/onsi/gomega v1.43.1
+	github.com/onsi/gomega v1.44.0
 	github.com/pgx-contrib/pgxcel v0.0.0-20260908070744-5a09b0638246
 	github.com/protoc-contrib/aip-go v0.0.0-20260904124944-e46838d893b9
 )
