@@ -6,6 +6,15 @@
 [![License](https://img.shields.io/github/license/pgx-contrib/pgxaip)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
 
+> [!WARNING]
+> **Deprecated; this repository is being archived.** Its key-set cursors
+> depend on page tokens and ordering in `protoc-contrib/aip-go`, which are
+> being removed (protoc-contrib/aip-go#3), and have known bugs (#45, #46).
+> For filtering, use [`pgxcel`](https://github.com/pgx-contrib/pgxcel)
+> directly: it transpiles the same checked CEL AST into a `WHERE` fragment.
+> Page with `LIMIT` / `OFFSET` until proper Go pagination exists; #46
+> records the design notes for it.
+
 `pgxaip` rewrites a compiled [CEL](https://github.com/google/cel-go) filter,
 an [AIP-132](https://google.aip.dev/132#ordering) `order_by`, and an
 optional keyset cursor into Postgres SQL fragments you splice into a
